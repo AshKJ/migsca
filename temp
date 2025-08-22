@@ -1,0 +1,25 @@
+ private static final String EXTERNAL_IDS_FOR_A_NODE_ID_SQL = 
+    """
+        select source, extref, nodeid from client_content.externalid where nodeid in (:nodeIds)  
+            and (type <> 'ASSET' or subtype <> 'EPISODE' or (type='ASSET' and subtype ='EPISODE' and source <> 'PROVIDER_PROGRAMME_ID') )  
+            and source not in (:sources)  
+        union  
+            select '  REGIONAL_CHANNEL_SERVICE_KEY_EXTID_SOURCE ' source, v.values->>0 extref, n.id nodeid from  
+            client_content.node n  
+            join client_content.datagramvariant v on v.nodeid = n.id and v.name='SERVICE_KEY'  
+            where n.id in (:nodeIds)  
+            and n.type='REFDATA'  
+            and n.subtype='regional_channel'
+        union
+            with data as (
+                select 
+                    dv.nodeid, jsonb_array_elements(dv.values) as values
+                from 
+                    client_content.datagramvariant dv join client_content.node n 
+                    on dv.nodeid = n.id 
+                    where n.id in (:nodeIds)
+                    and dv.name = 'ALTERNATE_IDS'
+                    
+            )
+            select data.values ->> 'type' as source, data.values ->> 'value' as extref, data.nodeid as nodeid from data where data.values ->> 'type' in (:eligibleTypes)
+    """;
